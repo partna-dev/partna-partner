@@ -18,6 +18,9 @@ The specialist issues the token together with the link. Two kinds are accepted:
 
 The tenant and the partner come from the token. There are no parameters saying
 whose data is requested — otherwise one partner's token would open another's.
+`profile.tenantId` repeats the tenant the token belongs to, so the page can ask
+the host cabinet about things that are not part of this contract (for example,
+whether the owner is signed in).
 
 The contract does not use cookies: the interface works from any domain.
 
@@ -33,6 +36,7 @@ the `Authorization` header, no `Allow-Credentials`.
 ```json
 {
   "profile": {
+    "tenantId": "real-estate",
     "memberId": "real-estate",
     "status": "active",
     "referralCode": "IRON",
