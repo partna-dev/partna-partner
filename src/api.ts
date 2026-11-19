@@ -7,6 +7,7 @@ export type Brand = {
 };
 
 export type Profile = {
+  tenantId: string;
   memberId: string;
   status: string;
   referralCode: string | null;

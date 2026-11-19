@@ -12,6 +12,7 @@ import {
   type Dashboard,
 } from "./api";
 import { memberStatus, money, payoutStatus, when } from "./format";
+import { mountSupport } from "./support";
 import { keepToken, takeToken } from "./token";
 
 const token = ref("");
@@ -25,7 +26,10 @@ const blockError = ref("");
 const notice = ref("");
 const percentDraft = ref("");
 const linkDraft = ref({ label: "", percent: "", days: 30 });
-const certificateDraft = ref({ label: "", amount: "" });
+const certificateDraft = ref<{ label: string; amount: string | number }>({
+  label: "",
+  amount: "",
+});
 
 const currency = computed(() => data.value?.currency ?? "RUB");
 const minimum = computed(() => data.value?.payoutMinimumMinor ?? 0);
@@ -68,6 +72,7 @@ async function load(): Promise<void> {
       token.value = payload.access.token;
     }
     document.title = `${payload.brand.name} — кабинет партнёра`;
+    void mountSupport(payload.profile.tenantId);
   } catch (problem) {
     data.value = null;
     if (problem instanceof Unauthorized) {
@@ -135,7 +140,14 @@ async function guard(action: string, run: () => Promise<void>): Promise<void> {
 }
 
 function savePercent(): Promise<void> {
-  const value = Number(percentDraft.value.replace(",", "."));
+  blockError.value = "";
+  notice.value = "";
+  const raw = String(percentDraft.value ?? "").trim().replace(",", ".");
+  const value = Number(raw);
+  if (!raw || Number.isNaN(value)) {
+    blockError.value = "Укажите процент числом";
+    return Promise.resolve();
+  }
   if (Number.isNaN(value) || value < 0 || value > limitPercent.value) {
     blockError.value = `Процент должен быть от 0 до ${limitPercent.value}`;
     return Promise.resolve();
@@ -152,7 +164,9 @@ function createLink(): Promise<void> {
     blockError.value = "Напишите, для кого ссылка";
     return Promise.resolve();
   }
-  const raw = linkDraft.value.percent.trim().replace(",", ".");
+  blockError.value = "";
+  notice.value = "";
+  const raw = String(linkDraft.value.percent ?? "").trim().replace(",", ".");
   const percent = raw ? Number(raw) : null;
   if (percent !== null && (Number.isNaN(percent) || percent > limitPercent.value)) {
     blockError.value = `Скидка должна быть от 0 до ${limitPercent.value} %`;
@@ -183,15 +197,31 @@ const certificateMinimum = computed(() =>
   data.value ? data.value.certificateRule.minimumMinor / 100 : 0,
 );
 
+const certificateAvailable = computed(() => data.value?.summary.availableMinor ?? 0);
+const certificateBlocked = computed(
+  () => certificateAvailable.value < (data.value?.certificateRule.minimumMinor ?? 0),
+);
+
 function requestCertificate(): Promise<void> {
+  blockError.value = "";
+  notice.value = "";
   const label = certificateDraft.value.label.trim();
-  const amount = Number(certificateDraft.value.amount.replace(",", "."));
+  const raw = String(certificateDraft.value.amount ?? "").trim().replace(",", ".");
+  const amount = Number(raw);
   if (!label) {
     blockError.value = "Напишите, для кого сертификат";
     return Promise.resolve();
   }
-  if (!amount || amount * 100 < (data.value?.certificateRule.minimumMinor ?? 0)) {
+  if (!raw || Number.isNaN(amount) || amount <= 0) {
+    blockError.value = "Укажите сумму числом";
+    return Promise.resolve();
+  }
+  if (amount * 100 < (data.value?.certificateRule.minimumMinor ?? 0)) {
     blockError.value = `Минимальная сумма — ${certificateMinimum.value}`;
+    return Promise.resolve();
+  }
+  if (Math.round(amount * 100) > certificateAvailable.value) {
+    blockError.value = `Больше доступного: ${money(certificateAvailable.value, currency.value)}`;
     return Promise.resolve();
   }
   return guard("certificate", async () => {
@@ -423,12 +453,18 @@ onMounted(async () => {
             Сертификат — это часть ваших начислений на подарок клиенту: он платит меньше,
             а сумма уходит с вашего баланса. Минимум {{ certificateMinimum }}, срок
             {{ data.certificateRule.days }} дней. Деньги списываются, когда специалист
-            подтвердит заявку.
+            подтвердит заявку. Доступно к переводу:
+            {{ money(certificateAvailable, currency) }}.
           </p>
 
           <p v-if="blockError" class="note error">{{ blockError }}</p>
 
-          <div class="row form">
+          <p v-if="certificateBlocked" class="muted small">
+            Пока начислений меньше минимума, сертификат попросить нельзя: сумма списывается
+            с баланса. Форма появится, когда накопится нужная сумма.
+          </p>
+
+          <div v-else class="row form">
             <label>
               <span>Для кого</span>
               <input v-model="certificateDraft.label" maxlength="60" placeholder="Маша" />
