@@ -14,7 +14,7 @@ import {
 import { memberStatus, money, payoutStatus, when } from "./format";
 import { bindPartner, loadSession, unbindPartner, type Binding } from "./session";
 import { mountSupport } from "./support";
-import { keepToken, takeToken } from "./token";
+import { forgetToken, keepToken, takeToken } from "./token";
 
 const token = ref("");
 const data = ref<Dashboard | null>(null);
@@ -276,7 +276,9 @@ async function unbindHere(): Promise<void> {
     bindings.value = bindings.value.filter(
       (item) => item.tenantId !== data.value?.profile.tenantId,
     );
-    notice.value = "Кабинет отвязан от аккаунта";
+    forgetToken();
+    token.value = "";
+    notice.value = "Кабинет отвязан от аккаунта: в следующий раз понадобится ссылка";
   } finally {
     sessionBusy.value = false;
   }
