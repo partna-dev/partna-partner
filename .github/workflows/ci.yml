@@ -1,0 +1,24 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: no secrets or tenant keys in the bundle
+        run: |
+          if grep -R "X-API-Key\\|partnr\\.icu" dist; then
+            echo "bundle contains a tenant key or a tenant host"
+            exit 1
+          fi
