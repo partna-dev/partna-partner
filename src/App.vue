@@ -12,6 +12,7 @@ import {
   type Dashboard,
 } from "./api";
 import { memberStatus, money, payoutStatus, when } from "./format";
+import { bindPartner, loadSession, unbindPartner, type Binding } from "./session";
 import { mountSupport } from "./support";
 import { keepToken, takeToken } from "./token";
 
@@ -31,6 +32,10 @@ const certificateDraft = ref<{ label: string; amount: string | number }>({
   label: "",
   amount: "",
 });
+const accountSignedIn = ref(false);
+const bindings = ref<Binding[]>([]);
+const boundHere = ref(false);
+const sessionBusy = ref(false);
 
 const currency = computed(() => data.value?.currency ?? "RUB");
 const minimum = computed(() => data.value?.payoutMinimumMinor ?? 0);
@@ -57,10 +62,28 @@ function statusText(value: string): string {
   return memberStatus(value);
 }
 
+function isBoundHere(state: { bindings: Binding[] }): boolean {
+  if (!data.value) {
+    return false;
+  }
+  const { tenantId, memberId } = data.value.profile;
+  return state.bindings.some(
+    (item) => item.tenantId === tenantId && item.memberId === memberId,
+  );
+}
+
 async function load(): Promise<void> {
+  const state = await loadSession();
+  accountSignedIn.value = state.account;
+  bindings.value = state.bindings;
   token.value = token.value || takeToken();
+  if (!token.value && state.bindings.length === 1) {
+    token.value = state.bindings[0].token;
+    keepToken(token.value);
+  }
   if (!token.value) {
     error.value = "none";
+    loading.value = false;
     return;
   }
   loading.value = true;
@@ -73,6 +96,7 @@ async function load(): Promise<void> {
       token.value = payload.access.token;
     }
     document.title = `${payload.brand.name} — кабинет партнёра`;
+    boundHere.value = isBoundHere(state);
     void mountSupport(payload.profile.tenantId);
   } catch (problem) {
     data.value = null;
@@ -208,6 +232,63 @@ function removeLink(code: string): Promise<void> {
   });
 }
 
+async function bindHere(): Promise<void> {
+  if (!token.value || sessionBusy.value) {
+    return;
+  }
+  sessionBusy.value = true;
+  blockError.value = "";
+  notice.value = "";
+  try {
+    const result = await bindPartner(token.value);
+    if (!result) {
+      blockError.value = "Не удалось запомнить кабинет";
+      return;
+    }
+    if (result.token) {
+      token.value = result.token;
+      keepToken(result.token);
+    }
+    const state = await loadSession();
+    accountSignedIn.value = state.account;
+    bindings.value = state.bindings;
+    boundHere.value = isBoundHere(state);
+    notice.value = "Кабинет запомнен: дальше он открывается без ссылки";
+  } finally {
+    sessionBusy.value = false;
+  }
+}
+
+async function unbindHere(): Promise<void> {
+  if (!data.value || sessionBusy.value) {
+    return;
+  }
+  sessionBusy.value = true;
+  blockError.value = "";
+  notice.value = "";
+  try {
+    const ok = await unbindPartner(data.value.profile.tenantId);
+    if (!ok) {
+      blockError.value = "Не удалось отвязать кабинет";
+      return;
+    }
+    boundHere.value = false;
+    bindings.value = bindings.value.filter(
+      (item) => item.tenantId !== data.value?.profile.tenantId,
+    );
+    notice.value = "Кабинет отвязан от аккаунта";
+  } finally {
+    sessionBusy.value = false;
+  }
+}
+
+function openBinding(item: Binding): void {
+  token.value = item.token;
+  keepToken(item.token);
+  error.value = "";
+  void load();
+}
+
 const certificateMinimum = computed(() =>
   data.value ? data.value.certificateRule.minimumMinor / 100 : 0,
 );
@@ -272,7 +353,25 @@ onMounted(async () => {
 <template>
   <div class="page" :style="brandStyle">
     <main class="card">
-      <p v-if="error === 'none'" class="empty">
+      <div v-if="error === 'none' && bindings.length" class="empty">
+        <strong>Ваши кабинеты</strong>
+        <div class="row">
+          <button
+            v-for="item in bindings"
+            :key="item.tenantId"
+            type="button"
+            :disabled="sessionBusy"
+            @click="openBinding(item)"
+          >
+            {{ item.brand }}
+          </button>
+        </div>
+        <p class="muted small">
+          Открыть можно без ссылки: эти кабинеты запомнены за вашим аккаунтом Partna.
+        </p>
+      </div>
+
+      <p v-else-if="error === 'none'" class="empty">
         <strong>Ссылка не открыта.</strong>
         Кабинет открывается по личной ссылке от вашего специалиста: она содержит
         код доступа в конце адреса. Попросите ссылку заново.
@@ -296,6 +395,21 @@ onMounted(async () => {
       <p v-else-if="loading && !data" class="empty">Загружаю…</p>
 
       <template v-else-if="data">
+        <div v-if="accountSignedIn" class="note session">
+          <template v-if="boundHere">
+            Кабинет привязан к аккаунту Partna.
+            <button class="link" type="button" :disabled="sessionBusy" @click="unbindHere">
+              Отвязать
+            </button>
+          </template>
+          <template v-else>
+            <button class="link" type="button" :disabled="sessionBusy" @click="bindHere">
+              Запомнить этот кабинет
+            </button>
+            — дальше он будет открываться без ссылки.
+          </template>
+        </div>
+
         <header class="head">
           <img
             v-if="data.brand.logo"
@@ -795,6 +909,13 @@ body {
   background: #fef2f2;
   border-color: #fecaca;
   color: #991b1b;
+}
+
+.note.session {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #3730a3;
+  margin-bottom: 14px;
 }
 
 h3 {
