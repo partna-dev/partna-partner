@@ -112,6 +112,7 @@ export type Dashboard = {
   certificateRequests: CertificateRequest[];
   certificateRule: CertificateRule;
   brand: Brand;
+  message: string;
   currency: string;
   payoutMinimumMinor: number;
   access: Access;

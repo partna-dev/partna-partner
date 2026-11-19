@@ -307,6 +307,19 @@ onMounted(async () => {
           <p v-else class="muted small">Ссылка пока не выдана — напишите специалисту.</p>
         </section>
 
+        <section v-if="data.message" class="block">
+          <h2>Текст для клиента</h2>
+          <p class="muted small">
+            Готовое сообщение: скопируйте и отправьте клиенту в мессенджере.
+          </p>
+          <div class="row">
+            <code class="message">{{ data.message }}</code>
+            <button type="button" @click="copy(data.message, 'message')">
+              {{ copied === "message" ? "Скопировано" : "Скопировать" }}
+            </button>
+          </div>
+        </section>
+
         <section v-if="data.discount.limitBp > 0" class="block">
           <h2>Скидки</h2>
           <p class="muted small">
@@ -760,6 +773,17 @@ h2 {
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
+}
+
+.message {
+  flex: 1 1 320px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #f3f4f8;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .link code {
