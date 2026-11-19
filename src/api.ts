@@ -56,6 +56,20 @@ export type Specialist = {
   paid: boolean;
 };
 
+export type Discount = {
+  limitBp: number;
+  currentBp: number;
+};
+
+export type DiscountLink = {
+  code: string;
+  url: string;
+  label: string;
+  discountBp: number;
+  expiresAt: string;
+  used: boolean;
+};
+
 export type Access = {
   expiresAt: string | null;
   token: string | null;
@@ -67,6 +81,8 @@ export type Dashboard = {
   invited: Invited[];
   payouts: Payout[];
   specialists: Specialist[];
+  discount: Discount;
+  links: DiscountLink[];
   brand: Brand;
   currency: string;
   payoutMinimumMinor: number;
@@ -93,10 +109,20 @@ export function apiBase(): string {
   return BASE;
 }
 
-export async function loadDashboard(token: string): Promise<Dashboard> {
-  const response = await fetch(`${BASE}/v1/portal/me`, {
-    headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
-  });
+export class Refused extends Error {}
+
+async function call<T>(
+  path: string,
+  token: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "application/json");
+  headers.set("Authorization", `Bearer ${token}`);
+  if (init.body) {
+    headers.set("Content-Type", "application/json");
+  }
+  const response = await fetch(`${BASE}${path}`, { ...init, headers });
   if (response.status === 401 || response.status === 404) {
     throw new Unauthorized();
   }
@@ -104,7 +130,58 @@ export async function loadDashboard(token: string): Promise<Dashboard> {
     throw new TooMany();
   }
   if (!response.ok) {
-    throw new Error(`ошибка ${response.status}`);
+    let detail = `ошибка ${response.status}`;
+    try {
+      const body = await response.json();
+      if (body?.detail) {
+        detail = String(body.detail);
+      }
+    } catch {
+      // тело не json — оставляем код
+    }
+    throw new Refused(detail);
   }
-  return (await response.json()) as Dashboard;
+  if (response.status === 204) {
+    return undefined as T;
+  }
+  return (await response.json()) as T;
+}
+
+export function loadDashboard(token: string): Promise<Dashboard> {
+  return call<Dashboard>("/v1/portal/me", token);
+}
+
+export function createDiscountLink(
+  token: string,
+  body: { label: string; percent: number | null; days: number },
+): Promise<DiscountLink> {
+  return call<DiscountLink>("/v1/portal/me/discount-links", token, {
+    method: "POST",
+    body: JSON.stringify({
+      label: body.label,
+      percent: body.percent,
+      days: body.days,
+    }),
+  });
+}
+
+export function deleteDiscountLink(
+  token: string,
+  code: string,
+): Promise<{ status: string; code: string }> {
+  return call<{ status: string; code: string }>(
+    `/v1/portal/me/discount-links/${encodeURIComponent(code)}`,
+    token,
+    { method: "DELETE" },
+  );
+}
+
+export function saveDiscount(
+  token: string,
+  percent: number,
+): Promise<Discount> {
+  return call<Discount>("/v1/portal/me/discount", token, {
+    method: "PUT",
+    body: JSON.stringify({ percent }),
+  });
 }

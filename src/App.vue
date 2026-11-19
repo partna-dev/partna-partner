@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import {
+  Refused,
   TooMany,
   Unauthorized,
+  createDiscountLink,
+  deleteDiscountLink,
   loadDashboard,
+  saveDiscount,
   type Dashboard,
 } from "./api";
 import { memberStatus, money, payoutStatus, when } from "./format";
@@ -15,6 +19,11 @@ const loading = ref(false);
 const error = ref("");
 const copied = ref("");
 const linkCopied = ref(false);
+const busy = ref("");
+const blockError = ref("");
+const notice = ref("");
+const percentDraft = ref("");
+const linkDraft = ref({ label: "", percent: "", days: 30 });
 
 const currency = computed(() => data.value?.currency ?? "RUB");
 const minimum = computed(() => data.value?.payoutMinimumMinor ?? 0);
@@ -94,7 +103,84 @@ async function copyClientLink(): Promise<void> {
   linkCopied.value = copied.value === "client";
 }
 
-onMounted(load);
+const limitPercent = computed(() =>
+  data.value ? data.value.discount.limitBp / 100 : 0,
+);
+
+function showPercent(bp: number): string {
+  return String(bp / 100);
+}
+
+async function guard(action: string, run: () => Promise<void>): Promise<void> {
+  busy.value = action;
+  blockError.value = "";
+  notice.value = "";
+  try {
+    await run();
+    await load();
+  } catch (problem) {
+    if (problem instanceof Unauthorized) {
+      error.value = "expired";
+    } else if (problem instanceof Refused) {
+      blockError.value = problem.message;
+    } else {
+      blockError.value =
+        problem instanceof Error ? problem.message : "действие не выполнилось";
+    }
+  } finally {
+    busy.value = "";
+  }
+}
+
+function savePercent(): Promise<void> {
+  const value = Number(percentDraft.value.replace(",", "."));
+  if (Number.isNaN(value) || value < 0 || value > limitPercent.value) {
+    blockError.value = `Процент должен быть от 0 до ${limitPercent.value}`;
+    return Promise.resolve();
+  }
+  return guard("percent", async () => {
+    await saveDiscount(token.value, value);
+    notice.value = "Ваш процент сохранён";
+  });
+}
+
+function createLink(): Promise<void> {
+  const label = linkDraft.value.label.trim();
+  if (!label) {
+    blockError.value = "Напишите, для кого ссылка";
+    return Promise.resolve();
+  }
+  const raw = linkDraft.value.percent.trim().replace(",", ".");
+  const percent = raw ? Number(raw) : null;
+  if (percent !== null && (Number.isNaN(percent) || percent > limitPercent.value)) {
+    blockError.value = `Скидка должна быть от 0 до ${limitPercent.value} %`;
+    return Promise.resolve();
+  }
+  return guard("create", async () => {
+    await createDiscountLink(token.value, {
+      label,
+      percent,
+      days: linkDraft.value.days,
+    });
+    linkDraft.value = { label: "", percent: "", days: 30 };
+    notice.value = "Ссылка выдана — она в списке";
+  });
+}
+
+function removeLink(code: string): Promise<void> {
+  if (!window.confirm("Удалить ссылку? По ней больше не перейти.")) {
+    return Promise.resolve();
+  }
+  return guard(`delete-${code}`, async () => {
+    await deleteDiscountLink(token.value, code);
+    notice.value = "Ссылка удалена";
+  });
+}
+
+onMounted(async () => {
+  await load();
+  percentDraft.value = data.value ? showPercent(data.value.discount.currentBp) : "";
+});
 </script>
 
 <template>
@@ -178,6 +264,103 @@ onMounted(load);
             </button>
           </div>
           <p v-else class="muted small">Ссылка пока не выдана — напишите специалисту.</p>
+        </section>
+
+        <section v-if="data.discount.limitBp > 0" class="block">
+          <h2>Скидки</h2>
+          <p class="muted small">
+            Ваша общая скидка для клиентов — до {{ limitPercent }} %. Скидочную ссылку
+            можно выдать одному человеку со своим процентом.
+          </p>
+
+          <p v-if="blockError" class="note error">{{ blockError }}</p>
+          <p v-if="notice" class="note ok">{{ notice }}</p>
+
+          <div class="row form">
+            <label>
+              <span>Ваш процент</span>
+              <input
+                v-model="percentDraft"
+                type="number"
+                min="0"
+                :max="limitPercent"
+                step="0.5"
+                inputmode="decimal"
+              />
+            </label>
+            <button type="button" :disabled="busy === 'percent'" @click="savePercent">
+              Сохранить
+            </button>
+          </div>
+
+          <h3 id="links">Скидка одному клиенту</h3>
+          <div class="row form">
+            <label>
+              <span>Для кого</span>
+              <input v-model="linkDraft.label" maxlength="40" placeholder="Маша" />
+            </label>
+            <label>
+              <span>Скидка, %</span>
+              <input
+                v-model="linkDraft.percent"
+                type="number"
+                min="0"
+                :max="limitPercent"
+                step="0.5"
+                inputmode="decimal"
+                placeholder="как общая"
+              />
+            </label>
+            <label>
+              <span>Срок, дней</span>
+              <input v-model.number="linkDraft.days" type="number" min="1" max="365" />
+            </label>
+            <button type="button" :disabled="busy === 'create'" @click="createLink">
+              Выдать ссылку
+            </button>
+          </div>
+
+          <div v-if="data.links.length" class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Кому</th>
+                  <th>Скидка</th>
+                  <th>Ссылка</th>
+                  <th>До</th>
+                  <th>Статус</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in data.links" :key="item.code">
+                  <td>{{ item.label || "—" }}</td>
+                  <td>{{ item.discountBp / 100 }} %</td>
+                  <td class="link-cell">
+                    <a :href="item.url" target="_blank" rel="noopener noreferrer">
+                      /r/{{ item.code }}
+                    </a>
+                    <button type="button" @click="copy(item.url, item.code)">
+                      {{ copied === item.code ? "Скопировано" : "Скопировать" }}
+                    </button>
+                  </td>
+                  <td>{{ when(item.expiresAt) }}</td>
+                  <td>{{ item.used ? "был переход" : "не открывали" }}</td>
+                  <td>
+                    <button
+                      type="button"
+                      class="danger"
+                      :disabled="busy === `delete-${item.code}`"
+                      @click="removeLink(item.code)"
+                    >
+                      Удалить
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-else class="muted small">Ссылок пока нет.</p>
         </section>
 
         <section class="block">
@@ -404,6 +587,46 @@ body {
   font-size: 14px;
 }
 
+.note.ok {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+
+.note.error {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+h3 {
+  font-size: 15px;
+  margin: 18px 0 4px;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: #6b7185;
+}
+
+.form input {
+  font: inherit;
+  color: #14161f;
+  padding: 9px 12px;
+  border: 1px solid #e6e8f0;
+  border-radius: 10px;
+  width: 160px;
+}
+
+.link-cell {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .block {
   margin-top: 28px;
 }
@@ -436,6 +659,16 @@ button {
   border: 1px solid #e6e8f0;
   padding: 9px 14px;
   background: #fff;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+button.danger {
+  border-color: #fecaca;
+  color: #b91c1c;
 }
 
 .table-wrap {
