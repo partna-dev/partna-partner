@@ -413,13 +413,18 @@ onMounted(async () => {
         </div>
 
         <header class="head">
-          <img
-            v-if="data.brand.logo"
-            class="logo"
-            :src="data.brand.logo"
-            :alt="data.brand.name"
-          />
-          <div v-else class="name">{{ data.brand.name }}</div>
+          <div class="head-top">
+            <img
+              v-if="data.brand.logo"
+              class="logo"
+              :src="data.brand.logo"
+              :alt="data.brand.name"
+            />
+            <div v-else class="name">{{ data.brand.name }}</div>
+            <a v-if="accountSignedIn" class="hub-link" href="/cabinets">
+              Все кабинеты
+            </a>
+          </div>
           <p class="lead">Кабинет партнёра</p>
           <p class="muted small">
             Партнёр {{ data.profile.memberId }} · {{ statusText(data.profile.status) }}
@@ -825,6 +830,37 @@ body {
 .head {
   text-align: center;
   margin-bottom: 20px;
+}
+
+.head-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  position: relative;
+}
+
+.hub-link {
+  position: absolute;
+  right: 0;
+  padding: 6px 12px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 999px;
+  color: #6b7280;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.hub-link:hover {
+  color: var(--brand);
+  border-color: var(--brand);
+}
+
+@media (max-width: 520px) {
+  .hub-link {
+    position: static;
+    margin-top: 8px;
+  }
 }
 
 .logo {
