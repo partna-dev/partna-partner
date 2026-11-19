@@ -16,6 +16,17 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - name: readmes and contract stay in sync
+        run: |
+          for pair in "README.md README.ru.md" "docs/portal-api.md docs/portal-api.ru.md"; do
+            set -- $pair
+            en=$(grep -c '^#' "$1")
+            ru=$(grep -c '^#' "$2")
+            if [ "$en" -ne "$ru" ]; then
+              echo "$1 and $2 have different section counts: $en vs $ru"
+              exit 1
+            fi
+          done
       - name: no secrets or tenant keys in the bundle
         run: |
           if grep -R "X-API-Key\\|partnr\\.icu" dist; then

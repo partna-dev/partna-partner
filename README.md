@@ -1,64 +1,63 @@
 # partna-partner
 
-Кабинет партнёра: одна страница, которая показывает партнёру его цифры — сколько
-начислено, сколько выплачено, сколько доступно, кто пришёл по ссылке и что уже
-выплачено.
+The partner cabinet: a single page that shows a partner their numbers — how much
+was accrued, how much was paid, what is available, who came through the link.
 
-Интерфейс открыт (MIT), потому что в нём нет ни секретов, ни денег: данные он
-получает по личной ссылке партнёра, а считает и платит сервис специалиста.
+The interface is open (MIT) because it holds no secrets and no money: it reads
+data through the partner's personal link, while the specialist's service does the
+counting and the paying.
 
-Обзор, установка и глоссарий — в документации: https://partna.dev/docs/
+English · [Русский](README.ru.md)
 
-## Что внутри
+## What is inside
 
-- Vue 3 + TypeScript + Vite, без UI-библиотек: один бандл, один CSS.
-- Сводка, приглашённые, выплаты, специалисты, ссылка для клиентов.
-- Скидочные ссылки: партнёр сам выдаёт ссылку одному клиенту и отзывает её.
-- Сертификаты: партнёр просит, владелец подтверждает; баланс списывается только
-  после подтверждения.
-- Бренд (название, цвета, логотип, текст поддержки) приходит с сервера, поэтому
-  один и тот же билд работает у любого специалиста.
-- Токен берётся из адреса: `https://ваш-домен/#t=<токен>`, после загрузки адрес
-  очищается, токен хранится в памяти вкладки (`sessionStorage`).
-- Ни ключей, ни cookie: запросы идут с `Authorization: Bearer`.
+- Vue 3 + TypeScript + Vite, no UI libraries: one bundle, one CSS file.
+- Summary, invited clients, payouts, specialists, the client link.
+- Discount links: the partner issues one for a single client and revokes it.
+- Certificates: the partner asks, the owner confirms; the balance is debited only
+  after confirmation.
+- The brand (name, colours, logo, support text) comes from the server, so one
+  build serves any specialist.
+- The token arrives in the address: `https://your-domain/#t=<token>`; the address
+  is cleaned after load and the token is kept in `sessionStorage`.
+- No keys, no cookies: requests carry `Authorization: Bearer`.
 
-## Сборка
+## Build
 
 ```bash
 npm ci
 VITE_PARTNA_API=https://networks.partna.dev npm run build
 ```
 
-`dist/` — статика, её можно положить на любой хостинг. Переменная
-`VITE_PARTNA_API` задаёт, какой сервис отдаёт данные; по умолчанию
-`https://networks.partna.dev`.
+`dist/` is static and can live on any host. `VITE_PARTNA_API` selects the service
+that serves the data; it defaults to `https://networks.partna.dev`.
 
-Проверить локально:
+Check locally:
 
 ```bash
 npm ci
 npm run dev
-# открыть http://localhost:5173/#t=<токен>
+# open http://localhost:5173/#t=<token>
 ```
 
-Токен выдаёт специалист в своём кабинете вместе со ссылкой для партнёра.
+The specialist issues the token in their cabinet together with the partner link.
 
-## Контракт
+## Contract
 
-Чтение описано в [docs/portal-api.md](docs/portal-api.md): `GET /v1/portal/me`,
-`/me/invited`, `/me/payouts`, заголовок `Authorization: Bearer`, коды ошибок.
+Reading is described in [docs/portal-api.md](docs/portal-api.md): `GET /v1/portal/me`,
+`/me/invited`, `/me/payouts`, the `Authorization: Bearer` header, error codes.
 
-Партнёр только смотрит и выдаёт скидочные ссылки. Выплаты закрывает и
-подтверждает владелец.
+The partner only reads and issues discount links. Payouts are closed and confirmed
+by the owner.
 
-## Границы
+## Boundaries
 
-- Деньги не проходят через интерфейс: он показывает начисления и выплаты,
-  которые посчитаны на стороне сервиса.
-- Ключ тенанта (`X-API-Key`) в браузер не попадает и здесь не используется.
-- Деньги не двигаются: скидочные ссылки раздают процент в пределах лимита
-  программы, баланс и выплаты остаются у владельца.
+- Money does not pass through the interface: it shows accruals and payouts counted
+  on the service side.
+- The tenant key (`X-API-Key`) never reaches the browser and is not used here.
+- Nothing moves money: discount links hand out a percentage within the programme
+  limit; the balance and payouts stay with the owner.
 
-## Лицензия
+## License
 
-MIT — см. [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).

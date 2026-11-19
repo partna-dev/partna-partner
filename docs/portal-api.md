@@ -1,30 +1,32 @@
-# Контракт партнёрского кабинета
+# Partner cabinet contract
 
-Только чтение. Все ответы — JSON в `camelCase`, суммы — в минорных единицах
-(копейки, тиыны, центы).
+English · [Русский](portal-api.ru.md)
 
-## Авторизация
+Read-only. All responses are JSON in `camelCase`, amounts are in minor units
+(kopecks, tiyins, cents).
+
+## Authorisation
 
 ```
-Authorization: Bearer <токен партнёра>
+Authorization: Bearer <partner token>
 ```
 
-Токен выдаёт специалист вместе со ссылкой. Видов два, оба принимаются:
+The specialist issues the token together with the link. Two kinds are accepted:
 
-- непрозрачный: живёт в базе сервиса, владелец может отозвать его в любой момент;
-- подписанный: содержит срок, продлевается при каждом обращении.
+- opaque: stored in the service database, the owner can revoke it at any moment;
+- signed: carries an expiry and is renewed on every call.
 
-Пара «тенант + партнёр» берётся из токена. Параметров о том, чьи данные
-запрашиваются, в контракте нет — иначе токен одного партнёра открывал бы чужие.
+The tenant and the partner come from the token. There are no parameters saying
+whose data is requested — otherwise one partner's token would open another's.
 
-Cookie контракт не использует: интерфейс работает с любого домена.
+The contract does not use cookies: the interface works from any domain.
 
 ## CORS
 
-Открыт только для `/v1/portal/me*`: `GET`, `OPTIONS`, `Access-Control-Allow-Origin: *`,
-заголовки `Authorization`, без `Allow-Credentials`.
+Open only for `/v1/portal/me*`: `GET`, `OPTIONS`, `Access-Control-Allow-Origin: *`,
+the `Authorization` header, no `Allow-Credentials`.
 
-## Маршруты
+## Routes
 
 ### `GET /v1/portal/me`
 
@@ -74,7 +76,7 @@ Cookie контракт не использует: интерфейс работ
   "certificates": [
     {
       "id": "01J...",
-      "label": "Маша",
+      "label": "Masha",
       "amountMinor": 100000,
       "currency": "RUB",
       "status": "active",
@@ -85,7 +87,7 @@ Cookie контракт не использует: интерфейс работ
   "certificateRequests": [
     {
       "id": "01J...",
-      "label": "Маша",
+      "label": "Masha",
       "amountMinor": 100000,
       "currency": "RUB",
       "status": "new",
@@ -99,7 +101,7 @@ Cookie контракт не использует: интерфейс работ
     {
       "code": "MASHA10",
       "url": "https://networks.partna.dev/r/MASHA10",
-      "label": "Маша",
+      "label": "Masha",
       "discountBp": 1000,
       "expiresAt": "2026-12-14T10:00:00Z",
       "used": false
@@ -108,7 +110,7 @@ Cookie контракт не использует: интерфейс работ
   "specialists": [
     {
       "tenantId": "olga",
-      "name": "Ольга",
+      "name": "Olga",
       "domain": "olga.example",
       "createdAt": "2026-11-03T10:00:00Z",
       "published": true,
@@ -116,24 +118,29 @@ Cookie контракт не использует: интерфейс работ
     }
   ],
   "brand": {
-    "name": "РАССВЕТ ИНТЕЛЛЕКТ",
+    "name": "AI SUNRISE",
     "color": "#4f46e5",
     "color2": "#7c3aed",
     "logo": null,
-    "support": "Вопросы — в поддержку"
+    "support": "Questions go to support"
   },
+  "message": "Hi! This is AI SUNRISE: ...",
   "currency": "RUB",
   "payoutMinimumMinor": 500000,
   "access": {
     "expiresAt": "2026-12-19T09:00:00Z",
-    "token": "новый-токен-или-null"
+    "token": "a-new-token-or-null"
   }
 }
 ```
 
-Поле `access.token` приходит только для подписанных токенов: это продлённый
-токен, его нужно сохранить на клиенте. Для непрозрачных токенов `access` равно
-`{"expiresAt": null, "token": null}` — срок не нужен, доступ отзывается.
+`access.token` arrives only for signed tokens: it is the renewed token and must be
+kept on the client. For opaque tokens `access` is
+`{"expiresAt": null, "token": null}` — no expiry is needed, access is revoked
+instead.
+
+`message` is the ready-to-send text for a client: name, link and brand already
+substituted.
 
 ### `GET /v1/portal/me/invited`
 
@@ -149,26 +156,26 @@ Cookie контракт не использует: интерфейс работ
 
 ### `POST /v1/portal/me/discount-links`
 
-Скидка одному клиенту. Деньги не двигаются: это процент от цены в пределах
-лимита программы.
+A discount for one client. No money moves: it is a percentage off the price within
+the programme limit.
 
 ```json
-{ "label": "Маша", "percent": 10, "days": 30 }
+{ "label": "Masha", "percent": 10, "days": 30 }
 ```
 
-- `label` — обязательна, до 40 знаков;
-- `percent` — необязателен; без него берётся общий процент партнёра; не выше
-  `discount.limitBp`;
-- `days` — от 1 до 365, по умолчанию 30;
-- не больше 50 активных ссылок, иначе `409`.
+- `label` is required, up to 40 characters;
+- `percent` is optional; without it the partner's common percentage is used; never
+  above `discount.limitBp`;
+- `days` is 1 to 365, 30 by default;
+- at most 50 active links, otherwise `409`.
 
-Ответ `201`:
+Response `201`:
 
 ```json
 {
   "code": "MASHA10",
   "url": "https://networks.partna.dev/r/MASHA10",
-  "label": "Маша",
+  "label": "Masha",
   "discountBp": 1000,
   "expiresAt": "2026-12-14T10:00:00Z",
   "used": false
@@ -177,70 +184,70 @@ Cookie контракт не использует: интерфейс работ
 
 ### `POST /v1/portal/me/certificate-requests`
 
-Сертификат — это расход баланса, поэтому по ссылке он не выдаётся: партнёр
-просит, владелец подтверждает. Деньги двигаются только после подтверждения.
+A certificate spends the balance, so a link cannot issue one: the partner asks,
+the owner confirms. Money moves only after confirmation.
 
 ```json
-{ "label": "Маша", "amountMinor": 100000 }
+{ "label": "Masha", "amountMinor": 100000 }
 ```
 
-- `amountMinor` не ниже `certificateRule.minimumMinor` и не выше доступного
-  баланса (`summary.availableMinor`), иначе `422`;
-- не больше пяти заявок в ожидании, иначе `409`;
-- ответ `201`: заявка со статусом `new`.
+- `amountMinor` is not below `certificateRule.minimumMinor` and not above the
+  available balance (`summary.availableMinor`), otherwise `422`;
+- at most five pending requests, otherwise `409`;
+- response `201`: a request with the status `new`.
 
-Статусы заявки: `new`, `approving`, `approved`, `declined`.
+Request statuses: `new`, `approving`, `approved`, `declined`.
 
 ### `DELETE /v1/portal/me/discount-links/{code}`
 
-Отзыв. Ответ `200`: `{"status": "revoked", "code": "MASHA10"}`. Чужая или
-несуществующая ссылка — `404`.
+Revocation. Response `200`: `{"status": "revoked", "code": "MASHA10"}`. Someone
+else's or a missing link — `404`.
 
 ### `PUT /v1/portal/me/discount`
 
-Общий процент партнёра.
+The partner's common percentage.
 
 ```json
 { "percent": 5 }
 ```
 
-Ответ `200`: `{"limitBp": 1000, "currentBp": 500}`. Выше лимита — `422`.
+Response `200`: `{"limitBp": 1000, "currentBp": 500}`. Above the limit — `422`.
 
-## Статусы
+## Statuses
 
-| Поле | Значения |
+| Field | Values |
 |---|---|
 | `profile.status`, `invited[].status` | `active`, `inactive`, `blocked`, `pending` |
 | `payouts[].status` | `draft`, `approved`, `paid`, `cancelled` |
 | `certificateRequests[].status` | `new`, `approving`, `approved`, `declined` |
 | `certificates[].status` | `active`, `reserved`, `used`, `expired` |
 
-Названия статусов — для логики. Показывать их человеку нужно своими словами.
+Status names are for logic. Showing them to a person is a separate mapping.
 
-## Ошибки
+## Errors
 
-| Код | Когда | Тело |
+| Code | When | Body |
 |---|---|---|
-| `401` | токена нет, он битый или отозван | `{"detail": "partner token ..."}` |
-| `404` | партнёра нет у этого тенанта | `{"detail": "partner not found"}` |
-| `429` | больше 60 запросов в минуту по токену | `{"detail": "too many requests"}` |
-| `409` | больше 50 активных скидочных ссылок или код не удалось выделить | `{"detail": "..."}` |
-| `422` | нет метки, процент вне лимита программы | `{"detail": "..."}` |
+| `401` | no token, or it is broken or revoked | `{"detail": "partner token ..."}` |
+| `404` | no such partner for this tenant | `{"detail": "partner not found"}` |
+| `429` | more than 60 requests per minute per token | `{"detail": "too many requests"}` |
+| `409` | more than 50 active links, or a code could not be allocated | `{"detail": "..."}` |
+| `422` | no label, percentage outside the programme limit | `{"detail": "..."}` |
 
-## Что считается совместимым изменением
+## What counts as a compatible change
 
-- добавление необязательных полей в ответы;
-- новые маршруты;
-- новые статусы выплат, если интерфейс показывает неизвестное значение как есть.
+- adding optional fields to responses;
+- new routes;
+- new payout statuses, as long as the interface shows unknown values as they are.
 
-Несовместимо: переименование и удаление полей, смена смысла сумм, изменение
-единиц (всегда минорные), перенос маршрутов, отказ от `Bearer`.
+Incompatible: renaming or removing fields, changing what amounts mean, changing
+units (always minor), moving routes, dropping `Bearer`.
 
-## Чего в контракте не будет
+## What the contract will never include
 
-- записи денег: выплаты и настройки остаются у владельца, сертификат выдаётся
-  только после его подтверждения;
-- скидочные ссылки — единственное действие, которое меняет данные сразу, и оно
-  не двигает баланс;
-- ключа тенанта: он живёт только на сервере владельца;
-- cookie и сессий: токен в заголовке — единственный способ.
+- money writes: payouts and settings stay with the owner, a certificate is issued
+  only after their confirmation;
+- discount links are the only action that changes data immediately, and it does not
+  move the balance;
+- the tenant key: it lives only on the owner's server;
+- cookies and sessions: a token in the header is the only way.
