@@ -79,8 +79,10 @@ Cookie контракт не использует: интерфейс работ
   "certificates": [
     {
       "id": "01J...",
+      "code": "МАША1000",
       "label": "Маша",
       "amountMinor": 100000,
+      "remainingMinor": 100000,
       "currency": "RUB",
       "status": "active",
       "createdAt": "2026-11-10T10:00:00Z",

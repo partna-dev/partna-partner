@@ -20,6 +20,7 @@ const data = ref<Dashboard | null>(null);
 const loading = ref(false);
 const error = ref("");
 const copied = ref("");
+const copiedCode = ref("");
 const linkCopied = ref(false);
 const busy = ref("");
 const blockError = ref("");
@@ -98,6 +99,20 @@ async function copy(value: string, field: string): Promise<void> {
     }, 2000);
   } catch {
     copied.value = "";
+  }
+}
+
+async function copyCertificateCode(code: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(code);
+    copiedCode.value = code;
+    window.setTimeout(() => {
+      if (copiedCode.value === code) {
+        copiedCode.value = "";
+      }
+    }, 2000);
+  } catch {
+    copiedCode.value = "";
   }
 }
 
@@ -514,7 +529,9 @@ onMounted(async () => {
               <thead>
                 <tr>
                   <th>Кому</th>
+                  <th>Код</th>
                   <th>Сумма</th>
+                  <th>Остаток</th>
                   <th>Статус</th>
                   <th>Действует до</th>
                 </tr>
@@ -522,7 +539,20 @@ onMounted(async () => {
               <tbody>
                 <tr v-for="item in data.certificates" :key="item.id">
                   <td>{{ item.label }}</td>
+                  <td>
+                    <div class="row tight">
+                      <code>{{ item.code }}</code>
+                      <button
+                        type="button"
+                        class="link"
+                        @click="copyCertificateCode(item.code)"
+                      >
+                        {{ copiedCode === item.code ? "Скопировано" : "Скопировать" }}
+                      </button>
+                    </div>
+                  </td>
                   <td>{{ money(item.amountMinor, item.currency) }}</td>
+                  <td>{{ money(item.remainingMinor ?? item.amountMinor, item.currency) }}</td>
                   <td>{{ certificateStatus(item.status) }}</td>
                   <td>{{ when(item.expiresAt) }}</td>
                 </tr>

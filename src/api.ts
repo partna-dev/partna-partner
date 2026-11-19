@@ -73,8 +73,10 @@ export type DiscountLink = {
 
 export type Certificate = {
   id: string;
+  code: string;
   label: string;
   amountMinor: number;
+  remainingMinor: number;
   currency: string;
   status: string;
   createdAt: string;

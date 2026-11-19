@@ -80,8 +80,10 @@ the `Authorization` header, no `Allow-Credentials`.
   "certificates": [
     {
       "id": "01J...",
+      "code": "MASHA1000",
       "label": "Masha",
       "amountMinor": 100000,
+      "remainingMinor": 100000,
       "currency": "RUB",
       "status": "active",
       "createdAt": "2026-11-10T10:00:00Z",
