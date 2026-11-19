@@ -71,6 +71,29 @@ Cookie контракт не использует: интерфейс работ
       "createdAt": "2026-11-14T10:00:00Z"
     }
   ],
+  "certificates": [
+    {
+      "id": "01J...",
+      "label": "Маша",
+      "amountMinor": 100000,
+      "currency": "RUB",
+      "status": "active",
+      "createdAt": "2026-11-10T10:00:00Z",
+      "expiresAt": "2027-02-08T10:00:00Z"
+    }
+  ],
+  "certificateRequests": [
+    {
+      "id": "01J...",
+      "label": "Маша",
+      "amountMinor": 100000,
+      "currency": "RUB",
+      "status": "new",
+      "createdAt": "2026-11-15T10:00:00Z",
+      "decidedAt": null
+    }
+  ],
+  "certificateRule": { "minimumMinor": 50000, "days": 90 },
   "discount": { "limitBp": 1000, "currentBp": 500 },
   "links": [
     {
@@ -152,6 +175,22 @@ Cookie контракт не использует: интерфейс работ
 }
 ```
 
+### `POST /v1/portal/me/certificate-requests`
+
+Сертификат — это расход баланса, поэтому по ссылке он не выдаётся: партнёр
+просит, владелец подтверждает. Деньги двигаются только после подтверждения.
+
+```json
+{ "label": "Маша", "amountMinor": 100000 }
+```
+
+- `amountMinor` не ниже `certificateRule.minimumMinor` и не выше доступного
+  баланса (`summary.availableMinor`), иначе `422`;
+- не больше пяти заявок в ожидании, иначе `409`;
+- ответ `201`: заявка со статусом `new`.
+
+Статусы заявки: `new`, `approving`, `approved`, `declined`.
+
 ### `DELETE /v1/portal/me/discount-links/{code}`
 
 Отзыв. Ответ `200`: `{"status": "revoked", "code": "MASHA10"}`. Чужая или
@@ -173,6 +212,8 @@ Cookie контракт не использует: интерфейс работ
 |---|---|
 | `profile.status`, `invited[].status` | `active`, `inactive`, `blocked`, `pending` |
 | `payouts[].status` | `draft`, `approved`, `paid`, `cancelled` |
+| `certificateRequests[].status` | `new`, `approving`, `approved`, `declined` |
+| `certificates[].status` | `active`, `reserved`, `used`, `expired` |
 
 Названия статусов — для логики. Показывать их человеку нужно своими словами.
 
@@ -197,7 +238,9 @@ Cookie контракт не использует: интерфейс работ
 
 ## Чего в контракте не будет
 
-- записи денег: выплаты, сертификаты и настройки остаются у владельца;
-  скидочные ссылки — единственное действие, и оно не двигает баланс;
+- записи денег: выплаты и настройки остаются у владельца, сертификат выдаётся
+  только после его подтверждения;
+- скидочные ссылки — единственное действие, которое меняет данные сразу, и оно
+  не двигает баланс;
 - ключа тенанта: он живёт только на сервере владельца;
 - cookie и сессий: токен в заголовке — единственный способ.

@@ -4,6 +4,7 @@ import {
   Refused,
   TooMany,
   Unauthorized,
+  askCertificate,
   createDiscountLink,
   deleteDiscountLink,
   loadDashboard,
@@ -24,6 +25,7 @@ const blockError = ref("");
 const notice = ref("");
 const percentDraft = ref("");
 const linkDraft = ref({ label: "", percent: "", days: 30 });
+const certificateDraft = ref({ label: "", amount: "" });
 
 const currency = computed(() => data.value?.currency ?? "RUB");
 const minimum = computed(() => data.value?.payoutMinimumMinor ?? 0);
@@ -175,6 +177,45 @@ function removeLink(code: string): Promise<void> {
     await deleteDiscountLink(token.value, code);
     notice.value = "Ссылка удалена";
   });
+}
+
+const certificateMinimum = computed(() =>
+  data.value ? data.value.certificateRule.minimumMinor / 100 : 0,
+);
+
+function requestCertificate(): Promise<void> {
+  const label = certificateDraft.value.label.trim();
+  const amount = Number(certificateDraft.value.amount.replace(",", "."));
+  if (!label) {
+    blockError.value = "Напишите, для кого сертификат";
+    return Promise.resolve();
+  }
+  if (!amount || amount * 100 < (data.value?.certificateRule.minimumMinor ?? 0)) {
+    blockError.value = `Минимальная сумма — ${certificateMinimum.value}`;
+    return Promise.resolve();
+  }
+  return guard("certificate", async () => {
+    await askCertificate(token.value, {
+      label,
+      amountMinor: Math.round(amount * 100),
+    });
+    certificateDraft.value = { label: "", amount: "" };
+    notice.value = "Заявка на сертификат отправлена";
+  });
+}
+
+function certificateStatus(value: string): string {
+  const map: Record<string, string> = {
+    new: "ждёт подтверждения",
+    approving: "выдаётся",
+    approved: "выдан",
+    declined: "отклонён",
+    active: "активен",
+    used: "использован",
+    expired: "истёк",
+    reserved: "в оплате",
+  };
+  return map[value] ?? value;
 }
 
 onMounted(async () => {
@@ -361,6 +402,84 @@ onMounted(async () => {
             </table>
           </div>
           <p v-else class="muted small">Ссылок пока нет.</p>
+        </section>
+
+        <section v-if="data.certificateRule.minimumMinor > 0" class="block">
+          <h2>Сертификаты</h2>
+          <p class="muted small">
+            Сертификат — это часть ваших начислений на подарок клиенту: он платит меньше,
+            а сумма уходит с вашего баланса. Минимум {{ certificateMinimum }}, срок
+            {{ data.certificateRule.days }} дней. Деньги списываются, когда специалист
+            подтвердит заявку.
+          </p>
+
+          <p v-if="blockError" class="note error">{{ blockError }}</p>
+
+          <div class="row form">
+            <label>
+              <span>Для кого</span>
+              <input v-model="certificateDraft.label" maxlength="60" placeholder="Маша" />
+            </label>
+            <label>
+              <span>Сумма</span>
+              <input
+                v-model="certificateDraft.amount"
+                type="number"
+                :min="certificateMinimum"
+                step="100"
+                inputmode="decimal"
+              />
+            </label>
+            <button
+              type="button"
+              :disabled="busy === 'certificate'"
+              @click="requestCertificate"
+            >
+              Попросить сертификат
+            </button>
+          </div>
+
+          <div v-if="data.certificateRequests.length" class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Кому</th>
+                  <th>Сумма</th>
+                  <th>Статус</th>
+                  <th>Когда</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in data.certificateRequests" :key="item.id">
+                  <td>{{ item.label }}</td>
+                  <td>{{ money(item.amountMinor, item.currency) }}</td>
+                  <td>{{ certificateStatus(item.status) }}</td>
+                  <td>{{ when(item.createdAt) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div v-if="data.certificates.length" class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Кому</th>
+                  <th>Сумма</th>
+                  <th>Статус</th>
+                  <th>Действует до</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in data.certificates" :key="item.id">
+                  <td>{{ item.label }}</td>
+                  <td>{{ money(item.amountMinor, item.currency) }}</td>
+                  <td>{{ certificateStatus(item.status) }}</td>
+                  <td>{{ when(item.expiresAt) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <section class="block">

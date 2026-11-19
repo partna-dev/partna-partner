@@ -70,6 +70,31 @@ export type DiscountLink = {
   used: boolean;
 };
 
+export type Certificate = {
+  id: string;
+  label: string;
+  amountMinor: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+  expiresAt: string;
+};
+
+export type CertificateRequest = {
+  id: string;
+  label: string;
+  amountMinor: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+  decidedAt: string | null;
+};
+
+export type CertificateRule = {
+  minimumMinor: number;
+  days: number;
+};
+
 export type Access = {
   expiresAt: string | null;
   token: string | null;
@@ -83,6 +108,9 @@ export type Dashboard = {
   specialists: Specialist[];
   discount: Discount;
   links: DiscountLink[];
+  certificates: Certificate[];
+  certificateRequests: CertificateRequest[];
+  certificateRule: CertificateRule;
   brand: Brand;
   currency: string;
   payoutMinimumMinor: number;
@@ -184,4 +212,15 @@ export function saveDiscount(
     method: "PUT",
     body: JSON.stringify({ percent }),
   });
+}
+
+export function askCertificate(
+  token: string,
+  body: { label: string; amountMinor: number },
+): Promise<CertificateRequest> {
+  return call<CertificateRequest>(
+    "/v1/portal/me/certificate-requests",
+    token,
+    { method: "POST", body: JSON.stringify(body) },
+  );
 }
