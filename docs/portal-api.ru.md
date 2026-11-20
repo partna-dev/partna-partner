@@ -154,6 +154,46 @@ Cookie контракт не использует: интерфейс работ
 { "memberId": "real-estate", "payouts": [], "access": { "expiresAt": null, "token": null } }
 ```
 
+### `GET /v1/portal/me/services`
+
+Каталог тенанта: что клиент может купить и за сколько. Только активные услуги,
+отсортированы по категории и цене.
+
+```json
+{
+  "memberId": "real-estate",
+  "tenantId": "real-estate",
+  "currency": "RUB",
+  "discount": { "limitBp": 1000, "currentBp": 500 },
+  "services": [
+    {
+      "serviceId": "p_01J8Z",
+      "title": "Разбор",
+      "category": "consult",
+      "categoryTitle": "Консультации",
+      "priceMinor": 500000,
+      "note": ""
+    }
+  ],
+  "access": { "expiresAt": null, "token": null }
+}
+```
+
+`priceMinor` — цена без скидки. Цену клиента считает та сторона, которая
+показывает: так лендинг и кабинет не разойдутся.
+
+```
+discountMinor = priceMinor * discountBp // 10000
+clientPriceMinor = priceMinor - discountMinor
+```
+
+`discountBp` — это `discount.currentBp` для собственных цифр партнёра или
+`links[].discountBp` для ссылки, выданной одному клиенту. Сертификат применяется
+после скидки и только при оплате: каталог не знает, действует ли конкретный
+сертификат прямо сейчас.
+
+Пустой каталог — пустой список, не `404`. Каталог не настроен вовсе — `503`.
+
 ### `POST /v1/portal/me/discount-links`
 
 Скидка одному клиенту. Деньги не двигаются: это процент от цены в пределах

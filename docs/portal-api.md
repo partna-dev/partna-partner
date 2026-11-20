@@ -160,6 +160,47 @@ substituted.
 { "memberId": "real-estate", "payouts": [], "access": { "expiresAt": null, "token": null } }
 ```
 
+### `GET /v1/portal/me/services`
+
+The tenant's catalogue: what a client can buy, and at what price. Only active
+services, sorted by category and price.
+
+```json
+{
+  "memberId": "real-estate",
+  "tenantId": "real-estate",
+  "currency": "RUB",
+  "discount": { "limitBp": 1000, "currentBp": 500 },
+  "services": [
+    {
+      "serviceId": "p_01J8Z",
+      "title": "Разбор",
+      "category": "consult",
+      "categoryTitle": "Консультации",
+      "priceMinor": 500000,
+      "note": ""
+    }
+  ],
+  "access": { "expiresAt": null, "token": null }
+}
+```
+
+`priceMinor` is the list price without any discount. The client's price is
+computed on the showing side so that a landing and the cabinet never disagree:
+
+```
+discountMinor = priceMinor * discountBp // 10000
+clientPriceMinor = priceMinor - discountMinor
+```
+
+`discountBp` is `discount.currentBp` for the partner's own figures, or
+`links[].discountBp` for a link issued to one client. A certificate is applied
+after the discount and only at payment: `catalog` does not know whether a given
+certificate is valid right now.
+
+An empty catalogue is an empty list, not `404`. No catalogue configured at all is
+`503`.
+
 ### `POST /v1/portal/me/discount-links`
 
 A discount for one client. No money moves: it is a percentage off the price within
